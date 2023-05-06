@@ -1,0 +1,5 @@
+src/.env
+src/command
+src/go.sum
+.idea/
+elasticsearch-data/*

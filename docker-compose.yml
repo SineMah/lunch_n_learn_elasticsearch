@@ -1,0 +1,37 @@
+version: "3"
+
+services:
+  es_app:
+    container_name: es_app
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.7.0
+    restart: always
+    environment:
+      - node.name=lunch_n_learn
+      - cluster.name=lunch_n_learn_cluster
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9221:9200"
+    volumes:
+      - ./elasticsearch-data:/usr/share/elasticsearch/data
+
+  kibana_app:
+    container_name: kibana_app
+    image: docker.elastic.co/kibana/kibana:8.7.0
+    environment:
+      - ELASTICSEARCH_HOSTS=http://es_app:9200    # address of elasticsearch docker container which kibana will connect
+    ports:
+      - "5611:5601"
+    depends_on:
+      - es_app
+
+networks:
+  elasticsearch_network:
