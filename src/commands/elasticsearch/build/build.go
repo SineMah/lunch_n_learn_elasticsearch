@@ -5,10 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/google/uuid"
 	"log"
+	"mincedmind.com/elasticsearch/elasticsearch"
 	"os"
 	"strconv"
 	"time"
@@ -62,24 +62,12 @@ func Start(params []string) {
 
 	fmt.Println(alias, currentIndex)
 
+	elasticsearch.FlushIndices(alias)
+	elasticsearch.CreateIndex(currentIndex)
+
 	indexList(currentIndex, getData())
-}
 
-func getClient() *elasticsearch.Client {
-	config := elasticsearch.Config{
-		Addresses: []string{
-			os.Getenv("ELASTICSEARCH_ADDRESS"),
-		},
-	}
-
-	es, err := elasticsearch.NewClient(config)
-
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	return es
+	elasticsearch.AddAlias(currentIndex, alias)
 }
 
 func getData() []Pokemon {
@@ -129,7 +117,7 @@ func mapPokemonList(pokemonEntries []PokemonEntry) []Pokemon {
 }
 
 func indexList(index string, pokemonList []Pokemon) {
-	client := getClient()
+	client := elasticsearch.GetClient()
 	namespace := uuid.MustParse("db11f1bb-8536-4c79-8c4c-08e28982fc1e")
 
 	for _, pokemon := range pokemonList {
