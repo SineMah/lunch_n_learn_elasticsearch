@@ -67,6 +67,9 @@ func CreateIndex(name string) {
 				"Abilities": {
 					"type": "nested"				
 				},
+				"Games": {
+					"type": "keyword"				
+				},
 				"Attributes": {
 					"properties": {
 						"Attack": {
