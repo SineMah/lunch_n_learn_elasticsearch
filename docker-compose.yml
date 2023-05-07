@@ -1,6 +1,14 @@
 version: "3"
 
 services:
+  go_app:
+    container_name: go_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/app:delegated
+
   es_app:
     container_name: es_app
     image: docker.elastic.co/elasticsearch/elasticsearch:8.7.0
