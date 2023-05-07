@@ -3,20 +3,36 @@ package routes
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
+	"io"
 	"mincedmind.com/elasticsearch/elasticsearch"
+	"sync"
 )
+
+var once sync.Once
+var cache map[string][]Pokemon
 
 func Search(ctx *fiber.Ctx) error {
 	var buf bytes.Buffer
+	index := ctx.Params("index")
+	body := string(ctx.Body())
+	hash := createMd5(index + body)
 
-	buf.WriteString(string(ctx.Body()))
+	//getMap()
 
-	res := searchElasticsearch(ctx, ctx.Params("index"), buf)
+	_, ok := cache[hash]
 
-	return ctx.JSON(res)
+	if ok == false {
+		buf.WriteString(body)
+
+		cache[hash] = searchElasticsearch(ctx, index, buf)
+	}
+
+	return ctx.JSON(cache[hash])
 }
 
 func Hello(ctx *fiber.Ctx) error {
@@ -79,4 +95,24 @@ func searchElasticsearch(ctx *fiber.Ctx, index string, body bytes.Buffer) []Poke
 	}
 
 	return data
+}
+
+func createMd5(text string) string {
+	hasher := md5.New()
+	_, err := io.WriteString(hasher, text)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+func InitMap() map[string][]Pokemon {
+
+	once.Do(func() {
+		cache = make(map[string][]Pokemon)
+	})
+
+	return cache
 }

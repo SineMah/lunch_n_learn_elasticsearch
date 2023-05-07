@@ -14,6 +14,9 @@ import (
 )
 
 func setUpRoutes(app *fiber.App) {
+
+	routes.InitMap()
+
 	app.Post("/search/:index", routes.Search)
 	app.Get("/", routes.Hello)
 }
