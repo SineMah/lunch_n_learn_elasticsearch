@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"mincedmind.com/elasticsearch/commands/elasticsearch/build"
+	"mincedmind.com/elasticsearch/pokemon/api"
 	"os"
 )
 
@@ -26,6 +27,8 @@ func handleCommandValue(value interface{}, args []string) {
 	switch value {
 	case "build":
 		build.Start(args)
+	case "fetch-pokemon":
+		api.FetchAll()
 	default:
 		fmt.Printf("command %s unknown\n", value)
 	}

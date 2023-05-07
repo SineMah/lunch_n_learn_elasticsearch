@@ -64,25 +64,28 @@ func CreateIndex(name string) {
                 "ID": {
                     "type": "integer"
                 },
+				"Abilities": {
+					"type": "nested"				
+				},
 				"Attributes": {
 					"properties": {
 						"Attack": {
-							"type": "long"
+							"type": "integer"
 						},
 						"Defense": {
-							"type": "long"
+							"type": "integer"
 						},
 						"HP": {
-							"type": "long"
+							"type": "integer"
 						},
 						"SpecialAttack": {
-							"type": "long"
+							"type": "integer"
 						},
 						"SpecialDefense": {
-							"type": "long"
+							"type": "integer"
 						},
 						"Speed": {
-							"type": "long"
+							"type": "integer"
 						}
 					}
 				}
@@ -103,6 +106,30 @@ func CreateIndex(name string) {
 
 	if res.IsError() {
 		fmt.Printf("Error creating the index: %s\n", res.String())
+		os.Exit(1)
+	}
+}
+
+func AddDocument(index string, id string, data []byte) {
+	client := GetClient()
+	req := esapi.IndexRequest{
+		Index:      index,
+		DocumentID: id,
+		Body:       bytes.NewReader(data),
+		Refresh:    "true",
+	}
+
+	res, err := req.Do(context.Background(), client)
+
+	if err != nil {
+		fmt.Printf("Error getting response: %s", err)
+		os.Exit(1)
+	}
+
+	defer res.Body.Close()
+
+	if res.IsError() {
+		fmt.Printf("Error: %s\n", res.String())
 		os.Exit(1)
 	}
 }

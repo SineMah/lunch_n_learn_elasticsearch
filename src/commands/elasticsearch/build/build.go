@@ -1,53 +1,19 @@
 package build
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/google/uuid"
 	"log"
 	"mincedmind.com/elasticsearch/elasticsearch"
+	"mincedmind.com/elasticsearch/pokemon"
+	"mincedmind.com/elasticsearch/pokemon/api"
 	"os"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
-
-type PokemonEntry struct {
-	ID   int `json:"id"`
-	Name struct {
-		English  string `json:"english"`
-		Japanese string `json:"japanese"`
-		Chinese  string `json:"chinese"`
-		French   string `json:"french"`
-	} `json:"name"`
-	Type []string `json:"type"`
-	Base struct {
-		HP        int `json:"HP"`
-		Attack    int `json:"Attack"`
-		Defense   int `json:"Defense"`
-		SpAttack  int `json:"Sp. Attack"`
-		SpDefense int `json:"Sp. Defense"`
-		Speed     int `json:"Speed"`
-	} `json:"base"`
-}
-
-type Attributes struct {
-	HP             int
-	Attack         int
-	Defense        int
-	SpecialAttack  int
-	SpecialDefense int
-	Speed          int
-}
-
-type Pokemon struct {
-	ID         int
-	Name       string
-	Type       []string
-	Attributes Attributes
-}
 
 func Start(params []string) {
 
@@ -70,8 +36,8 @@ func Start(params []string) {
 	elasticsearch.AddAlias(currentIndex, alias)
 }
 
-func getData() []Pokemon {
-	var pokemons []PokemonEntry
+func getData() []pokemon.Pokemon {
+	var pokemonList []pokemon.Entry
 	directory, _ := os.Getwd()
 	file, readErr := os.Open(fmt.Sprintf("%s/storage/pokedex.json", directory))
 
@@ -83,25 +49,42 @@ func getData() []Pokemon {
 	defer file.Close()
 
 	decoder := json.NewDecoder(file)
-	decodeErr := decoder.Decode(&pokemons)
+	decodeErr := decoder.Decode(&pokemonList)
 
 	if decodeErr != nil {
 		fmt.Println("Error decoding JSON:", decodeErr)
 		os.Exit(1)
 	}
 
-	return mapPokemonList(pokemons)
+	return mapPokemonList(pokemonList)
 }
 
-func mapPokemonList(pokemonEntries []PokemonEntry) []Pokemon {
-	var pokemonList []Pokemon
+func mapPokemonList(pokemonEntries []pokemon.Entry) []pokemon.Pokemon {
+	var pokemonList []pokemon.Pokemon
 
 	for _, entry := range pokemonEntries {
-		pokemon := Pokemon{
+		var games []string
+		var abilities []pokemon.Ability
+		var moves []string
+		var images []string
+		meta, errMeta := getMeta(entry.ID)
+		weight := 0
+		height := 0
+
+		if errMeta == nil {
+			height = meta.Height
+			weight = meta.Weight
+			games = parseGames(meta)
+			abilities = parseAbilities(meta)
+			moves = parseMoves(meta)
+			images = parseImages(meta)
+		}
+
+		entry := pokemon.Pokemon{
 			ID:   entry.ID,
 			Name: entry.Name.English,
 			Type: entry.Type,
-			Attributes: Attributes{
+			Attributes: pokemon.Attributes{
 				HP:             entry.Base.HP,
 				Attack:         entry.Base.Attack,
 				Defense:        entry.Base.Defense,
@@ -109,40 +92,117 @@ func mapPokemonList(pokemonEntries []PokemonEntry) []Pokemon {
 				SpecialDefense: entry.Base.SpDefense,
 				Speed:          entry.Base.Speed,
 			},
+			Abilities: abilities,
+			Height:    height,
+			Weight:    weight,
+			Games:     games,
+			Moves:     moves,
+			Images:    images,
 		}
-		pokemonList = append(pokemonList, pokemon)
+		pokemonList = append(pokemonList, entry)
 	}
 
 	return pokemonList
 }
 
-func indexList(index string, pokemonList []Pokemon) {
-	client := elasticsearch.GetClient()
+func indexList(index string, pokemonList []pokemon.Pokemon) {
 	namespace := uuid.MustParse("db11f1bb-8536-4c79-8c4c-08e28982fc1e")
+	size := len(pokemonList)
+	current := 1
 
-	for _, pokemon := range pokemonList {
-		data, errMarshal := json.Marshal(pokemon)
-		if errMarshal != nil {
-			log.Fatalf("Error marshaling document: %s", errMarshal)
-		}
+	var wg sync.WaitGroup
 
-		req := esapi.IndexRequest{
-			Index:      index,
-			DocumentID: uuid.NewSHA1(namespace, []byte(strconv.Itoa(pokemon.ID))).String(),
-			Body:       bytes.NewReader(data),
-			Refresh:    "true",
-		}
+	// index concurrently
+	for _, entry := range pokemonList {
+		wg.Add(1)
 
-		res, err := req.Do(context.Background(), client)
+		go func(index string, entry pokemon.Pokemon) {
+			defer wg.Done()
 
-		if err != nil {
-			log.Fatalf("Error getting response: %s", err)
-		}
+			id := uuid.NewSHA1(namespace, []byte(strconv.Itoa(entry.ID))).String()
+			data, errMarshal := json.Marshal(entry)
 
-		defer res.Body.Close()
+			if errMarshal != nil {
+				fmt.Printf("Error marshaling document: %s", errMarshal)
+				os.Exit(1)
+			}
 
-		if res.IsError() {
-			fmt.Printf("Error: %s\n", res.String())
-		}
+			elasticsearch.AddDocument(index, id, data)
+
+			fmt.Printf("%.2f%%\n", float64(current)*100/float64(size))
+
+			current++
+		}(index, entry)
+
+		wg.Wait()
 	}
+}
+
+func getMeta(id int) (api.Pokemon, error) {
+	directory, _ := os.Getwd()
+	pokemonApi := api.Pokemon{}
+
+	fileBytes, errRead := os.ReadFile(fmt.Sprintf("%s/storage/meta/%d.json", directory, id))
+
+	if errRead != nil {
+		log.Printf("Error reading: %s", errRead)
+		return pokemonApi, errRead
+	}
+
+	errDecode := json.Unmarshal(fileBytes, &pokemonApi)
+
+	if errDecode != nil {
+		log.Printf("Error decoding: %s", errDecode)
+		return pokemonApi, errRead
+	}
+
+	return pokemonApi, nil
+}
+
+func parseGames(item api.Pokemon) []string {
+	var games []string
+
+	for _, game := range item.GameIndices {
+		games = append(games, normalizeName(game.Version.Name))
+	}
+
+	return games
+}
+
+func parseMoves(item api.Pokemon) []string {
+	var moves []string
+
+	for _, move := range item.Moves {
+		moves = append(moves, normalizeName(move.Move.Name))
+	}
+
+	return moves
+}
+
+func parseImages(item api.Pokemon) []string {
+	var images []string
+
+	images = append(images, item.Sprites.Other.DreamWorld.FrontDefault)
+	images = append(images, item.Sprites.Other.Home.FrontDefault)
+	images = append(images, item.Sprites.Other.OfficialArtwork.FrontDefault)
+
+	return images
+}
+
+func parseAbilities(item api.Pokemon) []pokemon.Ability {
+	var abilities []pokemon.Ability
+
+	for _, ability := range item.Abilities {
+		abilities = append(abilities, pokemon.Ability{
+			Name:     normalizeName(ability.Ability.Name),
+			Slot:     ability.Slot,
+			IsHidden: ability.IsHidden,
+		})
+	}
+
+	return abilities
+}
+
+func normalizeName(name string) string {
+	return strings.ReplaceAll(name, "-", " ")
 }
