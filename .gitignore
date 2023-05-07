@@ -1,5 +1,6 @@
 src/.env
 src/command
+src/server
 src/go.sum
 .idea/
 elasticsearch-data/*
