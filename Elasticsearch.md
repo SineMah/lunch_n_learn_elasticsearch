@@ -28,6 +28,7 @@
     - scripts (painless)
     - [boosting](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-boosting-query.html)
     - [NLP](https://www.elastic.co/guide/en/machine-learning/current/ml-nlp.html)
+    - [ML](https://www.elastic.co/guide/en/machine-learning/current/ml-nlp-deploy-models.html)
 - Echtzeit-Indexing
 - Facettierte Suche
 - Aggregationen
