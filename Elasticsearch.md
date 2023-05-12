@@ -11,7 +11,6 @@
     - Logstash
     - usw.
 - Xpack Plugins
-- 2010 usw ...
 - [Licence: Elastic License](https://www.elastic.co/de/licensing/elastic-license)
     - Änderung durch Amazon/AWS
 - Derivate
