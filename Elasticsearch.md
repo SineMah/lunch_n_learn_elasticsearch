@@ -1,6 +1,7 @@
 # Search Engines - Elasticsearch
 
-- Elasticsearch ist keine traditionelle Datenbank.
+- Elasticsearch ist keine traditionelle Datenbank
+- [GitHub](https://github.com/orgs/elastic/repositories?type=all)
 - Suche auf Basis von Lucene
 - NoSQL (JSON)
 - [Geschichte](https://www.elastic.co/de/about/history-of-elasticsearch)
@@ -10,7 +11,7 @@
     - Beats
     - Logstash
     - usw.
-- Xpack Plugins
+- [X-Pack](https://www.elastic.co/de/what-is/open-x-pack) Plugins
 - [Licence: Elastic License](https://www.elastic.co/de/licensing/elastic-license)
     - Änderung durch Amazon/AWS
 - Derivate
@@ -63,6 +64,7 @@
 - Abfrage deklarativ (SQL ähnlich) oder programmatisch mit JSON nesting
 
 ### Deklarativ
+X-Pack Feature
 ```sql
 POST /_sql?format=txt
 {
